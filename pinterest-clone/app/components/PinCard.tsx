@@ -12,6 +12,7 @@ interface PinCardProps {
 
 export default function PinCard({ pin }: PinCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const [isLiked, setIsLiked] = useState(pin.is_liked || false)
   const [likesCount, setLikesCount] = useState(pin.likes_count || 0)
 
@@ -19,12 +20,10 @@ export default function PinCard({ pin }: PinCardProps) {
     e.preventDefault()
     e.stopPropagation()
 
-    // Obtenemos el usuario directamente de Supabase
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     try {
-      // Lógica de like directa con Supabase
       const { data: existingLike } = await supabase
         .from('likes')
         .select('id')
@@ -33,7 +32,6 @@ export default function PinCard({ pin }: PinCardProps) {
         .single()
 
       if (existingLike) {
-        // Eliminar like
         await supabase
           .from('likes')
           .delete()
@@ -47,7 +45,6 @@ export default function PinCard({ pin }: PinCardProps) {
         setIsLiked(false)
         setLikesCount(count || 0)
       } else {
-        // Agregar like
         await supabase
           .from('likes')
           .insert({
@@ -81,51 +78,108 @@ export default function PinCard({ pin }: PinCardProps) {
           src={pin.profiles.avatar_url} 
           alt={getUsername()}
           className="w-full h-full rounded-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.style.display = 'none'
+          }}
         />
       )
     }
     return getUsername().charAt(0).toUpperCase()
   }
 
-  const handleSave = (e: React.MouseEvent) => {
+  const handleSave = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Guardar pin:', pin.id)
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    try {
+      // Lógica para guardar el pin en una colección
+      console.log('Guardar pin:', pin.id)
+      // Aquí puedes implementar la lógica para guardar el pin
+    } catch (error) {
+      console.error('Error saving pin:', error)
+    }
   }
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Compartir pin:', pin.id)
+    
+    if (navigator.share) {
+      navigator.share({
+        title: pin.title || 'Pin de Mariposas',
+        text: pin.description || '',
+        url: `${window.location.origin}/pin/${pin.id}`
+      })
+    } else {
+      // Fallback para copiar el enlace
+      navigator.clipboard.writeText(`${window.location.origin}/pin/${pin.id}`)
+      console.log('Enlace copiado al portapapeles')
+    }
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
+    setImageLoaded(true)
+  }
+
+  // Función para obtener una imagen de placeholder si la original falla
+  const getImageUrl = () => {
+    if (imageError) {
+      return `https://picsum.photos/500/750?random=${pin.id}`
+    }
+    return pin.image_url
   }
 
   return (
     <div className="break-inside-avoid relative group cursor-zoom-in mb-4">
       <Link href={`/pin/${pin.id}`} className="block">
         <div className="relative rounded-2xl overflow-hidden bg-gray-200 shadow-lg">
-          <Image
-            src={pin.image_url}
-            alt={pin.title || 'Pin image'}
-            width={500}
-            height={750}
-            className={`w-full transition-opacity duration-300 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            priority={false}
-          />
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-2xl" />
-          )}
+          {/* Contenedor de imagen con relación de aspecto */}
+          <div className="relative" style={{ paddingBottom: '150%' }}> {/* 2:3 ratio */}
+            <Image
+              src={getImageUrl()}
+              alt={pin.title || 'Imagen de pin'}
+              fill
+              className={`object-cover transition-opacity duration-300 ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => setImageLoaded(true)}
+              onError={handleImageError}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority={false}
+            />
+            
+            {!imageLoaded && !imageError && (
+              <div className="absolute inset-0 bg-gray-200 animate-pulse rounded-2xl flex items-center justify-center">
+                <div className="text-gray-400">
+                  <i className="fas fa-image text-2xl"></i>
+                </div>
+              </div>
+            )}
+            
+            {imageError && (
+              <div className="absolute inset-0 bg-gray-100 rounded-2xl flex items-center justify-center">
+                <div className="text-gray-400 text-center p-4">
+                  <i className="fas fa-image text-2xl mb-2"></i>
+                  <p className="text-xs">Imagen no disponible</p>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Overlay con acciones */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-4">
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-3">
             <div className="flex justify-end">
               <button 
                 onClick={handleSave}
-                className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-700 transition-colors"
+                className="bg-red-600 text-white px-3 py-2 rounded-full text-sm font-semibold hover:bg-red-700 transition-colors flex items-center space-x-1"
               >
-                Guardar
+                <i className="fas fa-bookmark text-xs"></i>
+                <span>Guardar</span>
               </button>
             </div>
             <div className="flex justify-between items-center">
@@ -138,28 +192,14 @@ export default function PinCard({ pin }: PinCardProps) {
                 }`}
                 aria-label={isLiked ? 'Quitar like' : 'Dar like'}
               >
-                <svg 
-                  className="w-5 h-5" 
-                  fill={isLiked ? "currentColor" : "none"} 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
-                  />
-                </svg>
+                <i className={`fas fa-heart ${isLiked ? 'text-white' : 'text-gray-700'}`}></i>
               </button>
               <button 
                 onClick={handleShare}
                 className="bg-white bg-opacity-90 rounded-full p-2 hover:bg-opacity-100 transition-all hover:scale-110"
                 aria-label="Compartir"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-                </svg>
+                <i className="fas fa-share text-gray-700"></i>
               </button>
             </div>
           </div>
@@ -168,21 +208,25 @@ export default function PinCard({ pin }: PinCardProps) {
       
       {/* Información del pin */}
       <div className="mt-2 px-2">
-        <h3 className="font-semibold text-sm truncate">{pin.title || 'Sin título'}</h3>
+        <h3 className="font-semibold text-sm truncate text-gray-900">
+          {pin.title || 'Sin título'}
+        </h3>
         {pin.description && (
-          <p className="text-gray-600 text-xs truncate">{pin.description}</p>
+          <p className="text-gray-600 text-xs truncate mt-1">
+            {pin.description}
+          </p>
         )}
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center">
-            <div className="w-6 h-6 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs overflow-hidden">
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs overflow-hidden shrink-0">
               {getAvatar()}
             </div>
-            <span className="text-xs text-gray-500">{getUsername()}</span>
+            <span className="text-xs text-gray-500 truncate">
+              {getUsername()}
+            </span>
           </div>
-          <div className="flex items-center text-xs text-gray-500">
-            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-            </svg>
+          <div className="flex items-center text-xs text-gray-500 shrink-0">
+            <i className="fas fa-heart text-xs mr-1"></i>
             {likesCount}
           </div>
         </div>
