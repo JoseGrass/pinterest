@@ -5,11 +5,13 @@ import PinCard from './PinCard'
 import { pinService } from '@/lib/pinService'
 import { Pin } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
+import CreatePinModal from './CreatePinModal' //import para el boton de agregar imagen
 
 export default function Feed() {
   const [pins, setPins] = useState<Pin[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false) // <-- estado del modal
   const { user } = useAuth()
 
   useEffect(() => {
@@ -20,14 +22,10 @@ export default function Feed() {
     try {
       setLoading(true)
       setError(null)
-      console.log('Cargando pins...', { userId: user?.id })
-      
+
       const pinsData = await pinService.getAllPins(user?.id)
-      console.log('Pins cargados:', pinsData)
-      
       setPins(pinsData)
     } catch (err: any) {
-      console.error('Error detallado loading pins:', err)
       setError(err.message || 'Error al cargar los pins')
     } finally {
       setLoading(false)
@@ -46,9 +44,6 @@ export default function Feed() {
     return (
       <div className="flex flex-col justify-center items-center py-12">
         <div className="text-red-600 text-lg mb-4">{error}</div>
-        <div className="text-gray-500 text-sm mb-4">
-          Revisa la consola del navegador para más detalles
-        </div>
         <button 
           onClick={loadPins}
           className="px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
@@ -61,11 +56,15 @@ export default function Feed() {
 
   return (
     <div className="px-4 max-w-7xl mx-auto">
+
+      {/* ⬇️ PIN GRID */}
       <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-4">
         {pins.map((pin) => (
           <PinCard key={pin.id} pin={pin} />
         ))}
       </div>
+
+      {/* ⬇️ MENSAJE SI NO HAY PINS */}
       {pins.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No hay pins disponibles</p>
@@ -77,6 +76,23 @@ export default function Feed() {
           </button>
         </div>
       )}
+
+      {/* ⬇️ CREATE PIN MODAL — AGREGADO DENTRO DEL RETURN (CORRECTO) */}
+      <CreatePinModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onPinCreated={loadPins}
+      />
+
+      {/* ⬇️ BOTÓN FLOTANTE */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-6 right-6 bg-red-600 text-white w-16 h-16 
+                  rounded-full shadow-xl flex items-center justify-center 
+                  text-4xl hover:bg-red-700 transition-colors z-50"
+      >
+        +
+      </button>
     </div>
   )
 }

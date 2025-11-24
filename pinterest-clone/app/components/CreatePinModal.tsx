@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import ImageUploader from '../components/ImageUploader'
 
 interface CreatePinModalProps {
   isOpen: boolean
@@ -129,14 +130,7 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
             <label className="block text-sm font-medium text-gray-700 mb-1">
               URL de la imagen *
             </label>
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="https://images.unsplash.com/photo-..."
-              required
-            />
+            <ImageUploader onUploaded={(url) => setImageUrl(url)} />
             <p className="text-xs text-gray-500 mt-1">
               Puedes usar imágenes de <a href="https://unsplash.com" target="_blank" className="text-red-600">Unsplash</a>
             </p>
