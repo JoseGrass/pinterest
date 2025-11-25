@@ -5,7 +5,7 @@ import PinCard from './PinCard'
 import { pinService } from '@/lib/pinService'
 import { Pin } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
-import CreatePinModal from './CreatePinModal' //import para el boton de agregar imagen
+
 
 export default function Feed() {
   const [pins, setPins] = useState<Pin[]>([])
@@ -77,22 +77,7 @@ export default function Feed() {
         </div>
       )}
 
-      {/* ⬇️ CREATE PIN MODAL — AGREGADO DENTRO DEL RETURN (CORRECTO) */}
-      <CreatePinModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onPinCreated={loadPins}
-      />
-
-      {/* ⬇️ BOTÓN FLOTANTE */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 right-6 bg-red-600 text-white w-16 h-16 
-                  rounded-full shadow-xl flex items-center justify-center 
-                  text-4xl hover:bg-red-700 transition-colors z-50"
-      >
-        +
-      </button>
+      
     </div>
   )
 }

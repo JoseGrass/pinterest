@@ -1,4 +1,3 @@
-// components/CreatePinModal.tsx - Versión con mejor debugging
 'use client'
 
 import { useState } from 'react'
@@ -15,68 +14,54 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [urlInput, setUrlInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+
+  const handleUploaded = (url: string) => {
+    setImageUrl(url)
+    setPreview(url)
+    setUrlInput('')
+  }
+
+  const handleUrlPreview = () => {
+    setPreview(urlInput)
+    setImageUrl(urlInput)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    setErrorMsg(null)
     if (!title || !imageUrl) {
-      alert('Por favor, completa el título y la URL de la imagen')
+      setErrorMsg('Por favor, completa el título y sube una imagen o pega una URL.')
       return
     }
-
     setLoading(true)
     try {
-      console.log('🔍 Iniciando creación de pin...')
-      
-      // 1. Verificar usuario
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      console.log('Usuario:', user)
-      
-      if (userError) {
-        console.error('Error al obtener usuario:', userError)
-        throw userError
-      }
-      
+      if (userError) throw userError
       if (!user) {
-        alert('Debes iniciar sesión para crear un pin')
+        setErrorMsg('Debes iniciar sesión para crear un pin')
         return
       }
-
-      // 2. Preparar datos
       const pinData = {
         title,
         description,
         image_url: imageUrl,
         user_id: user.id
       }
-      
-      console.log('📝 Datos del pin:', pinData)
-
-      // 3. Insertar en la base de datos
-      const { data, error } = await supabase
-        .from('pins')
-        .insert([pinData])
-        .select() // ← Esto es importante para obtener el resultado
-
-      if (error) {
-        console.error('❌ Error de Supabase:', error)
-        throw error
-      }
-
-      console.log('✅ Pin creado exitosamente:', data)
-
-      // 4. Limpiar y cerrar
+      const { error } = await supabase.from('pins').insert([pinData])
+      if (error) throw error
       setTitle('')
       setDescription('')
       setImageUrl('')
-      
+      setUrlInput('')
+      setPreview(null)
       onPinCreated()
       onClose()
-      
     } catch (error: any) {
-      console.error('❌ Error completo al crear pin:', error)
-      alert(`Error al crear el pin: ${error.message}`)
+      setErrorMsg(error.message || 'Error al crear el pin')
     } finally {
       setLoading(false)
     }
@@ -85,34 +70,52 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-md">
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-bold">Crear nuevo Pin</h2>
-          <button 
-            onClick={onClose} 
-            className="text-gray-500 hover:text-gray-700"
+    <div className="fixed inset-0 flex justify-center items-center z-50 pointer-events-auto" style={{ background: 'rgba(0,0,0,0.08)' }}>
+      {/* Modal tarjeta (centrado y pequeño) */}
+      <div
+        className="
+          bg-white rounded-xl shadow-xl border border-gray-200
+          w-full max-w-sm min-w-[310px]
+          mx-auto
+          p-4
+          flex flex-col
+          animate-fadein
+        "
+        style={{
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          bottom: '5rem', // deja libre el espacio para el menú inferior en móviles
+          position: 'relative'
+        }}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center mb-2 border-b pb-2">
+          <h2 className="text-lg md:text-xl font-bold text-gray-800">Crear nuevo Pin</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-700"
             disabled={loading}
           >
             <i className="fas fa-times text-xl"></i>
           </button>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMsg && <div className="text-red-600 text-sm mb-1">{errorMsg}</div>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Título *
+              Título <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="Añade un título"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="Título del pin"
               required
+              disabled={loading}
             />
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Descripción
@@ -120,27 +123,52 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-              placeholder="Añade una descripción"
+              rows={2}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500"
+              placeholder="Detalles del pin"
+              disabled={loading}
             />
           </div>
-          
-          <div>
+          <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              URL de la imagen *
+              Imagen <span className="text-red-500">*</span>
             </label>
-            <ImageUploader onUploaded={(url) => setImageUrl(url)} />
+            <ImageUploader onUploaded={handleUploaded} />
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="URL de imagen pública (http...)"
+                className="border border-gray-300 rounded-lg px-2 py-1 w-full text-sm focus:ring-2 focus:ring-red-400"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="px-3 py-1 bg-gray-100 rounded text-sm text-gray-700 hover:bg-gray-200"
+                onClick={handleUrlPreview}
+                disabled={loading || !urlInput}
+              >
+                Usar URL
+              </button>
+            </div>
+            {preview && (
+              <img
+                src={preview}
+                alt="Vista previa"
+                className="max-h-40 w-auto rounded-lg mx-auto mt-2 shadow"
+                style={{ border: '1px solid #eee', background: '#fafafa' }}
+              />
+            )}
             <p className="text-xs text-gray-500 mt-1">
-              Puedes usar imágenes de <a href="https://unsplash.com" target="_blank" className="text-red-600">Unsplash</a>
+              Sube una imagen desde tu dispositivo <b>o</b> pega una URL pública directa.
             </p>
           </div>
-          
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 bg-gray-100 rounded"
               disabled={loading}
             >
               Cancelar
@@ -148,7 +176,7 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
             <button
               type="submit"
               disabled={loading}
-              className="bg-red-600 text-white px-6 py-2 rounded-full hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+              className="bg-red-600 text-white px-6 py-2 rounded-full hover:bg-red-700 opacity-90 flex items-center space-x-2"
             >
               {loading ? (
                 <>
@@ -158,13 +186,14 @@ export default function CreatePinModal({ isOpen, onClose, onPinCreated }: Create
               ) : (
                 <>
                   <i className="fas fa-plus"></i>
-                  <span>Crear Pin</span>
+                  <span>Crear</span>
                 </>
               )}
             </button>
           </div>
         </form>
       </div>
+      {/* El BottomNav nunca se tapa ni se desactiva */}
     </div>
   )
 }

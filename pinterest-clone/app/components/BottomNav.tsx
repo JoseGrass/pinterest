@@ -1,4 +1,3 @@
-// components/BottomNav.tsx
 'use client'
 
 import Link from 'next/link'
@@ -6,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
+import CreatePinModal from './CreatePinModal'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -18,11 +18,9 @@ export default function BottomNav() {
       setUser(user)
     }
     getUser()
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -37,14 +35,18 @@ export default function BottomNav() {
     { href: '/profile', icon: 'fas fa-user', label: 'Perfil' },
   ]
 
+  const handlePinCreated = () => {
+    setShowCreateModal(false)
+    // Si necesitas, aquí puedes recargar pins o hacer acciones extra
+  }
+
   return (
     <>
-      {/* Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden">
+      {/* Navigation Bar: Visible en todas las pantallas */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
         <div className="flex justify-around items-center py-2">
           {navItems.map((item) => {
             const isActive = item.href ? pathname === item.href : false
-            
             if (item.action) {
               return (
                 <button
@@ -59,7 +61,6 @@ export default function BottomNav() {
                 </button>
               )
             }
-
             return (
               <Link
                 key={item.label}
@@ -75,18 +76,16 @@ export default function BottomNav() {
           })}
         </div>
       </nav>
-
-      {/* Espacio para el contenido no se oculte detrás del nav */}
-      <div className="pb-16 md:pb-0"></div>
-
-      {/* Modal para crear pin - puedes usar tu CreatePinModal aquí */}
-      {/* {showCreateModal && (
-        <CreatePinModal 
+      <div className="pb-16"></div>
+      
+      {/* Modal para crear pin */}
+      {showCreateModal && (
+        <CreatePinModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
-          onPinCreated={() => setShowCreateModal(false)}
+          onPinCreated={handlePinCreated}
         />
-      )} */}
+      )}
     </>
   )
 }
