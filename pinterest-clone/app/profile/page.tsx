@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
   const [shouldFetch, setShouldFetch] = useState(true)
 
@@ -42,6 +43,11 @@ export default function ProfilePage() {
   const handleSignIn = async () => {
     setLoading(true)
     setMessage(null)
+    if (!email || !password) {
+      setMessage('Por favor ingresa email y contraseña')
+      setLoading(false)
+      return
+    }
     try {
       await authService.signIn(email, password)
       setMessage('Inicio de sesión exitoso')
@@ -56,10 +62,19 @@ export default function ProfilePage() {
   const handleSignUp = async () => {
     setLoading(true)
     setMessage(null)
+    if (!email || !password) {
+      setMessage('Por favor ingresa email y contraseña')
+      setLoading(false)
+      return
+    }
     try {
-      await authService.signUp(email, password)
-      setMessage('Cuenta creada, revisa tu email para confirmar')
-      setShouldFetch(true)
+      const { user, session } = await authService.signUp(email, password)
+      if (user && !session) {
+        setMessage('Cuenta creada, revisa tu email para confirmar')
+      } else if (user && session) {
+        setMessage('Cuenta creada y sesión iniciada')
+        setShouldFetch(true)
+      }
     } catch (error: any) {
       setMessage(error.message || 'Error al crear cuenta')
     } finally {
@@ -94,28 +109,8 @@ export default function ProfilePage() {
     if (!window.confirm('¿Seguro que deseas eliminar tu cuenta definitivamente? Esta acción no se puede deshacer.')) return
     setDeleting(true)
     setMessage(null)
-    try {
-      const { error } = await supabase.auth.admin.deleteUser(user.id)
-      if (error) {
-        setMessage('No se pudo eliminar la cuenta: ' + error.message)
-      } else {
-        setMessage('Cuenta eliminada correctamente.')
-        await authService.signOut()
-        setUser(null)
-        setUsername('')
-        setFullName('')
-        setAvatar('')
-        setWebsite('')
-        setEmail('')
-        setPassword('')
-        setShouldFetch(true)
-        router.refresh()
-      }
-    } catch (error: any) {
-      setMessage(error.message || 'Error al eliminar cuenta')
-    } finally {
-      setDeleting(false)
-    }
+    setMessage('La eliminación de cuenta debe hacerse desde backend seguro.')
+    setDeleting(false)
   }
 
   const handleSave = async () => {
@@ -140,8 +135,31 @@ export default function ProfilePage() {
       <div className="w-full sm:max-w-md bg-white rounded-2xl shadow-lg p-5 border border-gray-200 mx-auto transition-all flex flex-col justify-center items-center">
         {!user ? (
           <>
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">Iniciar sesión o crear cuenta</h2>
+            <div className="mb-4 flex justify-center gap-4">
+              <button
+                onClick={() => setIsSignUp(false)}
+                className={`px-4 py-2 rounded ${
+                  !isSignUp ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-900'
+                }`}
+              >
+                Iniciar sesión
+              </button>
+              <button
+                onClick={() => setIsSignUp(true)}
+                className={`px-4 py-2 rounded ${
+                  isSignUp ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-900'
+                }`}
+              >
+                Crear cuenta
+              </button>
+            </div>
+
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">
+              {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+            </h2>
+
             {message && <div className="mb-3 text-red-600 text-center">{message}</div>}
+
             <input
               type="email"
               placeholder="Correo electrónico"
@@ -158,22 +176,16 @@ export default function ProfilePage() {
               className="w-full border border-gray-300 rounded-xl p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
               disabled={loading}
             />
-            <div className="flex gap-4 mb-2 flex-col sm:flex-row">
-              <button
-                onClick={handleSignIn}
-                disabled={loading}
-                className="bg-red-600 text-white py-2 px-5 rounded-xl font-semibold shadow hover:bg-red-700 transition-all w-full sm:w-auto"
-              >
-                {loading ? 'Iniciando...' : 'Iniciar sesión'}
-              </button>
-              <button
-                onClick={handleSignUp}
-                disabled={loading}
-                className="bg-gray-200 text-gray-900 py-2 px-5 rounded-xl font-semibold shadow hover:bg-gray-300 transition-all w-full sm:w-auto"
-              >
-                {loading ? 'Creando...' : 'Crear cuenta'}
-              </button>
-            </div>
+
+            <button
+              onClick={isSignUp ? handleSignUp : handleSignIn}
+              disabled={loading}
+              className={`${
+                isSignUp ? 'bg-gray-200 text-gray-900' : 'bg-red-600 text-white'
+              } py-2 px-5 rounded-xl font-semibold shadow hover:bg-gray-300 transition-all w-full sm:w-auto`}
+            >
+              {loading ? (isSignUp ? 'Creando...' : 'Iniciando...') : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+            </button>
           </>
         ) : (
           <>
